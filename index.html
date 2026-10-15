@@ -345,6 +345,10 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
 
 .qs{font-weight:500;color:var(--fg2);letter-spacing:0}
 .li-px .day{font-size:13px;font-weight:600;margin-left:6px;padding-left:8px;border-left:1px solid var(--sep)}
+
+.sync-st{font-size:13.5px;color:var(--fg2);text-align:right}
+.sync-st.warn{color:var(--orange)}
+#syncPwRow .cell+.cell,#syncConnected .cell{border-top:.5px solid var(--sep)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -507,6 +511,17 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
     <p class="foot">按股票名称自动匹配代码；匹配错了可以手动改成 6 位代码。交易时段每秒刷新，其余时间每 30 秒刷新，数据来自腾讯财经公开行情，可能有延迟。</p>
   </div>
   <div class="sec">
+    <div class="sec-h t-purple"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8a4 4 0 0 1 0 8"/><path d="M12 12v8M9 17l3 3 3-3"/></svg></span><h2>云端同步</h2></div>
+    <div class="card">
+      <div class="cell"><label>仓库</label><span class="num" id="syncRepo" style="margin-left:auto;color:var(--fg2)"></span></div>
+      <div class="cell"><label>状态</label><span id="syncState" class="sync-st" style="margin-left:auto"></span></div>
+      <div id="syncPwRow"><div class="cell"><label for="syncPw">访问令牌</label><input id="syncPw" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+        <div class="cell"><button class="btn small" type="button" id="syncSave" style="margin-left:auto">连接并同步</button></div></div>
+      <div id="syncConnected" hidden><div class="cell"><button class="btn ghost" type="button" id="syncNow">立即同步</button><button class="link danger" type="button" id="syncOff" style="margin-left:auto">断开这台设备</button></div></div>
+    </div>
+    <p class="foot">打开网址时自动读取仓库里的 data.json，任何人都能查看。要在这台设备上修改并保存，需要填一次 GitHub 访问令牌（只授权这个仓库的 Contents 读写），令牌只保存在这台设备上。</p>
+  </div>
+  <div class="sec">
     <div class="sec-h t-teal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 3v12M7 10l5 5 5-5"/></svg></span><h2>数据备份</h2></div>
     <div class="card bk">
       <button class="bkb" type="button" id="expCsv" data-dl><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4zM4 10h16M10 4v16"/></svg><span><b>导出表格</b><small>CSV，可用 Excel 打开</small></span></button>
@@ -515,7 +530,7 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
       <input type="file" id="impFile" accept=".json,application/json" hidden>
     </div>
     <div class="imp" id="impConfirm" hidden><p id="impMsg"></p><div class="imp-a"><button class="btn small" type="button" id="impGo">确认导入</button><button class="btn ghost" type="button" id="impNo">取消</button></div></div>
-    <p class="foot" id="bkNote">数据只保存在当前浏览器里，换手机或换浏览器前，先在这里备份，再到新设备导入。</p>
+    <p class="foot" id="bkNote">GitHub 会保留 data.json 的每一次修改历史。这里的备份文件可以额外留一份存档。</p>
   </div>
 </div>
 
@@ -917,20 +932,85 @@ $('#impGo').addEventListener('click',async()=>{
   finally{$('#impGo').disabled=false;}
 });
 
-/* ---------- local storage database ---------- */
+/* ---------- storage: local copy + data.json in the GitHub repo ---------- */
+const SYNC={owner:'',repo:'',path:'data.json',pw:'',sha:null,state:'idle',at:null,err:'',ready:false};
+(function(){
+  const h=location.hostname,seg=location.pathname.split('/').filter(Boolean);
+  if(/\.github\.io$/i.test(h)){SYNC.owner=h.split('.')[0];SYNC.repo=seg[0]&&!/\.html?$/i.test(seg[0])?seg[0]:h;}
+  try{const c=JSON.parse(localStorage.getItem('margin.sync')||'{}');if(c.owner)SYNC.owner=c.owner;if(c.repo)SYNC.repo=c.repo;if(c.token)SYNC.pw=c.token;}catch(e){}
+  SYNC.ready=!!(SYNC.owner&&SYNC.repo);
+})();
+function saveSyncCfg(){try{localStorage.setItem('margin.sync',JSON.stringify({owner:SYNC.owner,repo:SYNC.repo,token:SYNC.pw}));}catch(e){}}
+const b64e=str=>{const by=new TextEncoder().encode(str);let bin='';for(let i=0;i<by.length;i+=0x8000)bin+=String.fromCharCode.apply(null,by.subarray(i,i+0x8000));return btoa(bin);};
+const b64d=b=>{const bin=atob(String(b).replace(/\s/g,''));const by=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)by[i]=bin.charCodeAt(i);return new TextDecoder().decode(by);};
+const apiUrl=()=>'https://api.github.com/repos/'+encodeURIComponent(SYNC.owner)+'/'+encodeURIComponent(SYNC.repo)+'/contents/'+SYNC.path;
+const apiHdr=()=>({'Accept':'application/vnd.github+json','Authorization':'Bearer '+SYNC.pw,'X-GitHub-Api-Version':'2022-11-28'});
+const ghErr=st=>new Error(st===401||st===403?'令牌无效、已过期，或没有这个仓库的写入权限':st===404?'找不到仓库或文件':'GitHub 返回 '+st);
 function makeLocalDB(){
   const KEY='margin.data.v1';
-  const fresh=()=>({trades:{},settings:{main:null,quotes:null,codes:null}});
-  const load=()=>{try{const d=JSON.parse(localStorage.getItem(KEY)||'null');return d&&d.trades?d:fresh();}catch(e){return fresh();}};
-  let data=load();const subs=new Set();
+  const fresh=()=>({app:'Margin',version:2,updatedAt:0,trades:{},settings:{main:null,quotes:null,codes:null}});
+  const norm=d=>{if(!d||typeof d!=='object'||!d.trades)return null;d.settings=d.settings||{};d.updatedAt=+d.updatedAt||0;return d;};
+  const load=()=>{try{return norm(JSON.parse(localStorage.getItem(KEY)||'null'))||fresh();}catch(e){return fresh();}};
+  let data=load();
+  let dirty=(()=>{try{return localStorage.getItem(KEY+'.dirty')==='1';}catch(e){return false;}})()||(!data.updatedAt&&Object.keys(data.trades).length>0);
+  let pulled=false;
+  const subs=new Set();
   const snapC=()=>({docs:Object.keys(data.trades).map(id=>({id,exists:true,data:()=>data.trades[id]}))});
   const snapD=(k)=>({id:k,exists:!!data.settings[k],data:()=>data.settings[k]||undefined});
-  const emit=()=>subs.forEach(f=>{try{f();}catch(e){}});
-  const save=()=>{localStorage.setItem(KEY,JSON.stringify(data));emit();};
+  const emit=()=>{subs.forEach(f=>{try{f();}catch(e){}});syncUI();};
+  const setDirty=v=>{dirty=v;try{localStorage.setItem(KEY+'.dirty',v?'1':'0');}catch(e){}};
+  const writeLocal=()=>{localStorage.setItem(KEY,JSON.stringify(data));};
+  let pushT=null;
+  const save=()=>{data.updatedAt=Date.now();writeLocal();setDirty(true);emit();clearTimeout(pushT);pushT=setTimeout(push,1000);};
   const rid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
   window.addEventListener('storage',e=>{if(e.key===KEY){data=load();emit();}});
   const wrap=fn=>new Promise((res,rej)=>{try{res(fn());}catch(e){rej({code:'quota_exceeded',message:String(e)});}});
+  // returns true when local changes still need uploading
+  const reconcile=remote=>{const r=norm(remote);if(!r)return dirty;
+    if(!dirty){data=r;data.base=r.updatedAt;try{writeLocal();}catch(e){}emit();return false;}
+    if(data.base===r.updatedAt)return true;
+    for(const id in data.trades)if(!r.trades[id])r.trades[id]=data.trades[id];
+    for(const k of ['main','quotes','codes'])if(!r.settings[k]&&data.settings[k])r.settings[k]=data.settings[k];
+    r.base=r.updatedAt;r.updatedAt=Date.now();data=r;try{writeLocal();}catch(e){}setDirty(true);emit();return true;};
+  async function pull(){
+    SYNC.state='pulling';syncUI();
+    try{
+      let remote=null;
+      if(SYNC.pw&&SYNC.ready){
+        const r=await fetch(apiUrl()+'?t='+Date.now(),{headers:apiHdr(),cache:'no-store'});
+        if(r.status===404){SYNC.sha=null;}
+        else if(!r.ok)throw ghErr(r.status);
+        else{const j=await r.json();SYNC.sha=j.sha;remote=JSON.parse(b64d(j.content||''));}
+      }else{
+        const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+        if(r.ok)remote=await r.json();
+      }
+      pulled=true;
+      const need=remote&&remote.trades?reconcile(remote):(dirty||Object.keys(data.trades).length>0);
+      if(need&&SYNC.pw){if(!dirty)setDirty(true);SYNC.state='ok';push();return;}
+      SYNC.state='ok';SYNC.at=new Date();SYNC.err='';
+    }catch(e){SYNC.state='err';SYNC.err=e.message||'网络错误';}
+    syncUI();
+  }
+  let pushing=false,again=false,conflicts=0;
+  async function push(){
+    if(!SYNC.ready||!SYNC.pw||!dirty){syncUI();return;}
+    if(!pulled){pull();return;}
+    if(pushing){again=true;return;}
+    pushing=true;SYNC.state='pushing';syncUI();
+    try{
+      const r=await fetch(apiUrl(),{method:'PUT',headers:apiHdr(),body:JSON.stringify({message:'Margin 数据更新 '+new Date().toLocaleString('zh-CN',{hour12:false}),content:b64e(JSON.stringify(data,null,1)),sha:SYNC.sha||undefined})});
+      if((r.status===409||r.status===422)&&conflicts<3){conflicts++;pushing=false;pulled=false;await pull();return;}
+      if(!r.ok)throw ghErr(r.status);
+      const j=await r.json();SYNC.sha=j.content&&j.content.sha;
+      data.base=data.updatedAt;try{writeLocal();}catch(e){}setDirty(false);conflicts=0;
+      SYNC.state='ok';SYNC.at=new Date();SYNC.err='';
+    }catch(e){SYNC.state='err';SYNC.err=e.message||'网络错误';}
+    pushing=false;syncUI();
+    if(again){again=false;push();}
+  }
   return {
+    pull,push,isDirty:()=>dirty,
     collection(name){return {
       add(doc){return wrap(()=>{data.trades[rid()]=JSON.parse(JSON.stringify(doc));save();});},
       onSnapshot(cb){const f=()=>cb(snapC());subs.add(f);setTimeout(f,0);return()=>subs.delete(f);}
@@ -947,7 +1027,24 @@ function makeLocalDB(){
     }
   };
 }
-
+function syncUI(){
+  const dirty=S.db&&S.db.isDirty&&S.db.isDirty();
+  const t=SYNC.at?pad(SYNC.at.getHours())+':'+pad(SYNC.at.getMinutes())+':'+pad(SYNC.at.getSeconds()):'';
+  let msg,cl='';
+  if(!SYNC.ready){msg='请在 GitHub Pages 网址上打开';cl='warn';}
+  else if(SYNC.state==='pushing')msg='正在保存到 GitHub…';
+  else if(SYNC.state==='pulling')msg='正在读取 GitHub 上的数据…';
+  else if(SYNC.state==='err'){msg='同步失败：'+SYNC.err;cl='warn';}
+  else if(!SYNC.pw)msg=dirty?'修改只在这台设备上，填写令牌后上传':'只读 · 已读取 data.json'+(t?' · '+t:'');
+  else msg=dirty?'有修改等待上传':'已同步'+(t?' · '+t:'');
+  if(!SYNC.pw&&dirty)cl='warn';
+  const rp=$('#syncRepo');if(rp)rp.textContent=SYNC.ready?SYNC.owner+'/'+SYNC.repo:'未识别';
+  const st=$('#syncState');if(st){st.textContent=msg;st.className='sync-st '+cl;}
+  const a=$('#syncPwRow'),b=$('#syncConnected');if(a)a.hidden=!!SYNC.pw||!SYNC.ready;if(b)b.hidden=!SYNC.pw;
+  const bn=$('#banner');
+  if(bn&&!bn.dataset.fixed){const show=SYNC.ready&&!SYNC.pw&&dirty;bn.hidden=!show;
+    if(show)bn.innerHTML='这台设备上的修改还没保存到 GitHub。<button class="link" type="button" data-sheet="setSheet">填写令牌</button>';}
+}
 
 /* ---------- live quotes (Tencent public quote service) ---------- */
 function loadScript(url,charset){return new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=url;if(charset)sc.charset=charset;
@@ -1004,16 +1101,34 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-csave]');i
   const inp=document.querySelector('[data-ck="'+CSS.escape(k)+'"]');const v=normCode(inp.value);
   if(!v){toast('请输入 6 位股票代码');return;}S.codes[k]=v;delete S.live[k];saveCodes();inp.blur();toast('代码已保存');refreshQuotes();});
 
+
+/* ---------- sync settings ---------- */
+$('#syncSave').addEventListener('click',async()=>{const v=$('#syncPw').value.trim();if(!v){toast('请先粘贴访问令牌');return;}
+  if(!SYNC.ready){toast('请在 GitHub Pages 的网址上打开');return;}
+  const bt=$('#syncSave');bt.disabled=true;
+  try{const r=await fetch('https://api.github.com/repos/'+encodeURIComponent(SYNC.owner)+'/'+encodeURIComponent(SYNC.repo),{headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+v}});
+    if(!r.ok)throw ghErr(r.status);const j=await r.json();
+    if(j.permissions&&j.permissions.push===false)throw new Error('这个令牌没有写入权限');
+    SYNC.pw=v;saveSyncCfg();$('#syncPw').value='';toast('已连接，正在同步');S.db.isDirty()?S.db.push():S.db.pull();
+  }catch(e){toast(e.message||'暂时连不上 GitHub');}
+  finally{bt.disabled=false;syncUI();}});
+$('#syncNow').addEventListener('click',()=>{S.db.isDirty()?S.db.push():S.db.pull();});
+$('#syncOff').addEventListener('click',e=>{const b=e.currentTarget;
+  if(!b.dataset.armed){b.dataset.armed='1';b.textContent='确认断开';setTimeout(()=>{delete b.dataset.armed;b.textContent='断开这台设备';},3000);return;}
+  SYNC.pw='';saveSyncCfg();syncUI();toast('这台设备已断开');});
+
 /* ---------- boot ---------- */
 go(S.view);render();
 (()=>{
   let ok=true;try{localStorage.setItem('margin.t','1');localStorage.removeItem('margin.t');}catch(e){ok=false;}
-  if(!ok){const b=$('#banner');b.hidden=false;b.textContent='浏览器禁止了本地存储（例如无痕模式），记录无法保存。请用普通模式打开。';}
+  if(!ok){const b=$('#banner');b.hidden=false;b.dataset.fixed='1';b.textContent='浏览器禁止了本地存储（例如无痕模式），记录无法保存。请用普通模式打开。';}
   const db=makeLocalDB();S.db=db;
   db.collection('trades').onSnapshot(snap=>{S.trades=snap.docs.map(d=>Object.assign({id:d.id},d.data()));S.loaded=true;lastC=null;render();});
   db.doc('settings/main').onSnapshot(s=>{if(s.exists)S.settings=Object.assign({mine:60,scheme:'cn'},s.data());render();});
   db.doc('settings/quotes').onSnapshot(s=>{S.quotes=s.exists&&s.data().map?s.data().map:{};render();});
   db.doc('settings/codes').onSnapshot(s=>{S.codes=s.exists&&s.data().map?Object.assign({},s.data().map):{};render();});
+  db.pull();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!db.isDirty())db.pull();});
   startQuotes();
 })();
 })();

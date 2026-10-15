@@ -1,0 +1,86 @@
+{
+ "app": "Margin",
+ "version": 2,
+ "updatedAt": 1792047000000,
+ "trades": {
+  "9ptczdmg8uc1q8glqtwz": {
+   "code": "",
+   "createdAt": 1792042036666,
+   "date": "2026-10-15",
+   "fee": 86.96,
+   "name": "汇金股份",
+   "note": "",
+   "price": 10.171,
+   "qty": 85500,
+   "side": "buy"
+  },
+  "hist-01": {
+   "code": "",
+   "createdAt": 1001,
+   "date": "2026-09-21",
+   "name": "南京港",
+   "note": "从旧应用导入",
+   "pnl": 28833.33,
+   "side": "history"
+  },
+  "hist-02": {
+   "code": "",
+   "createdAt": 1002,
+   "date": "2026-09-21",
+   "name": "鼎信通讯",
+   "note": "从旧应用导入",
+   "pnl": 25955,
+   "side": "history"
+  },
+  "hist-03": {
+   "code": "",
+   "createdAt": 1003,
+   "date": "2026-09-21",
+   "name": "出版传媒",
+   "note": "从旧应用导入",
+   "pnl": 12725,
+   "side": "history"
+  },
+  "hist-04": {
+   "code": "",
+   "createdAt": 1004,
+   "date": "2026-09-22",
+   "name": "新华都",
+   "note": "从旧应用导入",
+   "pnl": 59500,
+   "side": "history"
+  },
+  "hist-05": {
+   "code": "",
+   "createdAt": 1005,
+   "date": "2026-10-15",
+   "name": "读者传媒",
+   "note": "从旧应用导入",
+   "pnl": 91500,
+   "side": "history"
+  },
+  "jjqu22v54xkl2kky759h": {
+   "code": "",
+   "createdAt": 1792042061631,
+   "date": "2026-10-15",
+   "fee": 41.49,
+   "name": "华兰疫苗",
+   "note": "",
+   "price": 19.572,
+   "qty": 21200,
+   "side": "buy"
+  }
+ },
+ "settings": {
+  "main": {
+   "mine": 60,
+   "scheme": "cn"
+  },
+  "quotes": null,
+  "codes": {
+   "map": {
+    "汇金股份": "sz300368"
+   }
+  }
+ }
+}
