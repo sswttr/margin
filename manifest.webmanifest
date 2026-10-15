@@ -1,0 +1,15 @@
+{
+  "name": "Margin",
+  "short_name": "Margin",
+  "description": "股票交易、盈亏与分成记录",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#1A3D6B",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
