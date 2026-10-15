@@ -1,7 +1,7 @@
 {
  "app": "Margin",
  "version": 2,
- "updatedAt": 1792049948576,
+ "updatedAt": 1792050001430,
  "trades": {
   "9ptczdmg8uc1q8glqtwz": {
    "code": "",
@@ -76,7 +76,9 @@
    "mine": 60,
    "scheme": "cn"
   },
-  "quotes": null,
+  "quotes": {
+   "map": {}
+  },
   "codes": {
    "map": {
     "汇金股份": "sz300368",
@@ -84,5 +86,5 @@
    }
   }
  },
- "base": 1792047000000
+ "base": 1792049948576
 }
