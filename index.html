@@ -229,7 +229,9 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
 .sheet{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(560px,100%);max-height:88vh;overflow:auto;overscroll-behavior:contain;background:var(--bg);border-radius:22px 22px 0 0;z-index:61;padding:6px max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:18px;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
 .sheet::before{content:"";align-self:center;width:38px;height:5px;border-radius:3px;background:var(--fg3);opacity:.4;margin-top:4px}
 @media (min-width:721px){.sheet{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:22px;max-height:84vh;padding-top:14px}.sheet::before{display:none}}
-.sheet-h{display:flex;align-items:center;justify-content:space-between}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-6px;z-index:3;background:var(--bg);margin:0 -4px;padding:12px 4px 8px}
+.done-b{border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;border-radius:999px;padding:0 18px;min-height:36px;cursor:pointer}
+.done-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sheet-h h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.3px}
 .xb{width:34px;height:34px;border-radius:50%;border:0;background:var(--fill);color:var(--fg2);display:grid;place-items:center;cursor:pointer}
 .xb svg{width:16px;height:16px}
@@ -474,7 +476,7 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
 <div class="toast" id="toast" role="status"></div>
 <div class="sheet-bg" id="sheetBg" hidden></div>
 <div class="sheet" id="quoteSheet" role="dialog" aria-modal="true" aria-labelledby="qsT" hidden>
-  <div class="sheet-h"><h2 id="qsT">持仓现价</h2><button class="xb" type="button" data-close aria-label="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sheet-h"><h2 id="qsT">持仓现价</h2><button class="done-b" type="button" data-close>完成</button></div>
   <p class="sheet-note">填写现价后，持仓市值与浮动盈亏立即按新价格计算。</p>
   <div class="sec">
           <div class="sec-h t-teal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><h2>更新现价</h2></div>
@@ -482,7 +484,7 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
         </div>
 </div>
 <div class="sheet" id="setSheet" role="dialog" aria-modal="true" aria-labelledby="ssT" hidden>
-  <div class="sheet-h"><h2 id="ssT">设置</h2><button class="xb" type="button" data-close aria-label="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sheet-h"><h2 id="ssT">设置</h2><button class="done-b" type="button" data-close>完成</button></div>
   <div class="sec">
     <div class="sec-h t-navy"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><h2>外观</h2></div>
     <div class="card"><div class="cell"><label>显示模式</label>
@@ -1010,7 +1012,7 @@ function makeLocalDB(){
     if(again){again=false;push();}
   }
   return {
-    pull,push,isDirty:()=>dirty,
+    pull,push,isDirty:()=>dirty,isPulled:()=>pulled,
     collection(name){return {
       add(doc){return wrap(()=>{data.trades[rid()]=JSON.parse(JSON.stringify(doc));save();});},
       onSnapshot(cb){const f=()=>cb(snapC());subs.add(f);setTimeout(f,0);return()=>subs.delete(f);}
@@ -1063,13 +1065,15 @@ async function resolveCode(key,name){
 }
 function saveCodes(){S.db&&S.db.doc('settings/codes').set({map:S.codes}).catch(()=>{});}
 function tradingNow(){const d=new Date(Date.now()+8*3600e3),wd=d.getUTCDay(),m=d.getUTCHours()*60+d.getUTCMinutes();return wd>=1&&wd<=5&&((m>=555&&m<=690)||(m>=780&&m<=900));}
-function qLabel(){const q=S.qStat;if(!q)return '';if(q.err)return ' · 行情暂不可用';return ' · '+(tradingNow()?'实时 ':'收盘 ')+q.t;}
+function qLabel(){const q=S.qStat;if(!q)return '';if(q.err)return S.live&&Object.keys(S.live).length?' · 上次行情 '+(q.t||''):' · 行情暂不可用';if(q.cached)return ' · 上次行情 '+q.t;return ' · '+(tradingNow()?'实时 ':'收盘 ')+q.t;}
+(function(){try{const c=JSON.parse(localStorage.getItem('margin.live')||'null');if(c&&c.live){S.live=c.live;S.qStat={t:c.t,cached:true};}}catch(e){}})();
 let qBusy=false;
 async function refreshQuotes(){
   if(qBusy)return;qBusy=true;
   try{
     const H=(lastC||compute()).holdings;if(!H.length){return;}
-    for(const h of H){if(!S.codes[h.key])await resolveCode(h.key,h.name);}
+    const canResolve=(S.db&&S.db.isPulled&&S.db.isPulled())||performance.now()>8000;
+    if(canResolve)for(const h of H){if(!S.codes[h.key])await resolveCode(h.key,h.name);}
     const pairs=H.map(h=>[h.key,S.codes[h.key]]).filter(x=>x[1]);
     if(!pairs.length)return;
     const codes=[...new Set(pairs.map(x=>x[1]))];
@@ -1081,8 +1085,9 @@ async function refreshQuotes(){
       if(price>0){const old=S.live[key];if(!old||old.price!==price)changed=true;S.live[key]={price,prev,pct:pc};}
       try{delete window['v_'+code];}catch(e){window['v_'+code]=undefined;}}
     const nd=new Date();S.qStat={t:pad(nd.getHours())+':'+pad(nd.getMinutes())+':'+pad(nd.getSeconds())};
+    try{localStorage.setItem('margin.live',JSON.stringify({live:S.live,t:S.qStat.t}));}catch(e){}
     if(changed){lastC=null;render();}else{const el=document.querySelector('.hs-t .qs');if(el)el.textContent=qLabel();}
-  }catch(e){S.qStat={err:true};const el=document.querySelector('.hs-t .qs');if(el)el.textContent=qLabel();}
+  }catch(e){S.qStat={err:true,t:S.qStat&&S.qStat.t};const el=document.querySelector('.hs-t .qs');if(el)el.textContent=qLabel();}
   finally{qBusy=false;}
 }
 let qTimer=null;
@@ -1123,7 +1128,7 @@ go(S.view);render();
   let ok=true;try{localStorage.setItem('margin.t','1');localStorage.removeItem('margin.t');}catch(e){ok=false;}
   if(!ok){const b=$('#banner');b.hidden=false;b.dataset.fixed='1';b.textContent='浏览器禁止了本地存储（例如无痕模式），记录无法保存。请用普通模式打开。';}
   const db=makeLocalDB();S.db=db;
-  db.collection('trades').onSnapshot(snap=>{S.trades=snap.docs.map(d=>Object.assign({id:d.id},d.data()));S.loaded=true;lastC=null;render();});
+  db.collection('trades').onSnapshot(snap=>{S.trades=snap.docs.map(d=>Object.assign({id:d.id},d.data()));S.loaded=true;lastC=null;render();setTimeout(refreshQuotes,0);});
   db.doc('settings/main').onSnapshot(s=>{if(s.exists)S.settings=Object.assign({mine:60,scheme:'cn'},s.data());render();});
   db.doc('settings/quotes').onSnapshot(s=>{S.quotes=s.exists&&s.data().map?s.data().map:{};render();});
   db.doc('settings/codes').onSnapshot(s=>{S.codes=s.exists&&s.data().map?Object.assign({},s.data().map):{};render();});
