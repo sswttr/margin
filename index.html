@@ -344,7 +344,7 @@ main{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16p
 @media (min-width:721px){.hl .li-f.hf{grid-template-columns:repeat(6,minmax(0,1fr))}.hl{padding:16px 20px}}
 
 .qs{font-weight:500;color:var(--fg2);letter-spacing:0}
-.li-px .day{font-size:12.5px;font-weight:600;margin-left:2px}
+.li-px .day{font-size:13px;font-weight:600;margin-left:6px;padding-left:8px;border-left:1px solid var(--sep)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -585,8 +585,8 @@ function render(){
 
   // hero
   const setH=(id,v)=>{const el=$(id);el.textContent=money(v,true);el.className=(id==='#hTotal'?'big num ':'v num ')+hcls(v);};
-  setH('#hMine',C.total*sh);setH('#hOther',C.total*(1-sh));setH('#hTotal',C.total);
-  $('#hMine').className='big num '+hcls(C.total);$('#hTotal').className='v num '+hcls(C.total);
+  setH('#hMine',C.real*sh);setH('#hOther',C.real*(1-sh));setH('#hTotal',C.real);
+  $('#hMine').className='big num '+hcls(C.real);$('#hTotal').className='v num '+hcls(C.real);
   $('#hMineLbl').textContent='本人盈亏 · '+Math.round(sh*100)+'%';
   $('#hOtherLbl').textContent='对方盈亏 · '+Math.round((1-sh)*100)+'%';
 
@@ -616,7 +616,7 @@ function renderHoldings(C,sh){
     const np=x.price==null,c=np?'flat':cls(x.pnl),dash=v=>np?'—':v;
     return `<div class="li hl">
       <div class="hl-top"><div class="li-t"><span class="nmk">${esc(x.name)}</span>${sampleTag(x.sample)}</div></div>
-      <div class="li-px num"><span>现价</span><b>${np?'—':nf.format(x.price)}</b>${S.live[x.key]&&isFinite(S.live[x.key].pct)?`<span class="day ${cls(S.live[x.key].pct)}">今日 ${sign(S.live[x.key].pct)}${Math.abs(S.live[x.key].pct).toFixed(2)}%</span>`:''}<span class="cost">成本 ${nf.format(x.avg)}</span></div>
+      <div class="li-px num"><span>现价</span><b>${np?'—':nf.format(x.price)}</b><span class="cost">成本 ${nf.format(x.avg)}</span>${S.live[x.key]&&isFinite(S.live[x.key].pct)?`<span class="day ${cls(S.live[x.key].pct)}">今日 ${sign(S.live[x.key].pct)}${Math.abs(S.live[x.key].pct).toFixed(2)}%</span>`:''}</div>
       <div class="li-f hf"><div><small>市值</small><b class="num">${money(x.mv)}</b></div><div><small>持仓天数</small><b class="num">${x.days} 天</b></div><div><small>总盈亏</small><b class="num ${c}">${dash(money(x.pnl,true))}</b></div><div><small>盈亏比例</small><b class="num ${c}">${dash(pct(x.pct))}</b></div><div><small>本人盈亏</small><b class="num mine-b ${c}">${dash(money(x.pnl*sh,true))}</b></div><div><small>对方盈亏</small><b class="num other-c">${dash(money(x.pnl*(1-sh),true))}</b></div></div>
     </div>`;}).join('');
 }
