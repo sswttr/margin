@@ -679,6 +679,22 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 /* start-date sub line may wrap */
 .stats .st-p .sub{white-space:normal;overflow:visible;line-height:1.3}
 .stats .sub .nw{white-space:nowrap}
+
+/* ===== tweak v8 ===== */
+.hc-t{font-size:12.5px;font-weight:700;white-space:nowrap}
+.hc-t.flat{color:var(--fg3);font-weight:500}
+.hc-dd{margin-left:12px;color:var(--fg2);font-weight:600}
+/* summary aligned with the stock cards below */
+.hsum{padding:14px 12px 0}
+.hs-t{padding:0 2px}
+.hs-g{padding:12px!important}
+.hs-g>div,.hs-g>.tile{padding:0!important}
+.hs-g>div+div{border-left:0!important;text-align:right;align-items:flex-end}
+
+/* ===== tweak v9: ratio column lines up with the pct badges ===== */
+.hc-pct{width:78px;min-width:78px;box-sizing:border-box;padding:3px 0}
+.hs-g{grid-template-columns:minmax(0,1fr) 78px!important}
+.hs-g>div+div{text-align:center!important;align-items:center!important}
 </style>
 
 </head>
@@ -963,9 +979,9 @@ function renderHoldings(C,sh){
     const np=x.price==null,c=np?'flat':cls(x.pnl),dash=v=>np?'—':v;
     const lv=(S.live||{})[x.key],dp=lv&&isFinite(lv.pct)?lv.pct:null;
     return `<article class="hc">
-      <div class="hc-a"><div class="hc-n"><h3>${esc(x.name)}</h3>${sampleTag(x.sample)}<span class="hc-d num">${x.days}天</span></div>
+      <div class="hc-a"><div class="hc-n"><h3>${esc(x.name)}</h3>${sampleTag(x.sample)}<span class="hc-t num ${dp==null?'flat':cls(dp)}">${dp==null?'今日 —':sign(dp)+Math.abs(dp).toFixed(2)+'%'}</span></div>
         <b class="hc-v num ${c}">${dash(money(x.pnl,true))}</b></div>
-      <div class="hc-b"><span class="hc-p num" title="成本 / 现价">${nf.format(x.avg)}<i>/</i><b>${np?'—':nf.format(x.price)}</b>${dp==null?'':` <em class="${cls(dp)}">${sign(dp)}${Math.abs(dp).toFixed(2)}%</em>`}</span>
+      <div class="hc-b"><span class="hc-p num" title="成本 / 现价">${nf.format(x.avg)}<i>/</i><b>${np?'—':nf.format(x.price)}</b><span class="hc-dd">${x.days}天</span></span>
         <span class="hc-pct num ${c}">${dash(pct(x.pct))}</span></div>
       <div class="hc-s"><div><small>市值</small><b class="num">${money(x.mv)}</b></div><div><small>本人盈亏</small><b class="num ${c}">${dash(money(x.pnl*sh,true))}</b></div><div><small>对方盈亏</small><b class="num ${c}">${dash(money(x.pnl*(1-sh),true))}</b></div></div>
     </article>`;}).join('')+'</div>';
