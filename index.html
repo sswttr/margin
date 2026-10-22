@@ -632,6 +632,53 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
   .tab[aria-pressed="true"]{color:var(--accent);background:none}
   .toast{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
 }
+
+/* ===== tweak v6 ===== */
+/* hero: more compact */
+.hero{padding:16px 18px 0;border-radius:22px}
+.hero .big{font-size:clamp(28px,8.6vw,36px);margin-top:2px}
+.hero .split{margin-top:12px}
+.hero .split>div{padding:10px 0 12px}
+.hero .split .v{font-size:clamp(16px,4.6vw,20px)}
+.hero svg.spark{height:90px}
+/* deeper section header tint */
+:root{--sh-bg1:#D6E3FC;--sh-bg2:#C3D5FA;--sh-line:rgba(47,98,208,.22);--sh-meta-bg:rgba(255,255,255,.82)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--sh-bg1:rgba(80,130,255,.30);--sh-bg2:rgba(80,130,255,.20)}}
+:root[data-theme="dark"]{--sh-bg1:rgba(80,130,255,.30);--sh-bg2:rgba(80,130,255,.20)}
+/* summary now two columns */
+.hs-g{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+/* history stats sub line */
+.stats .sub{font-size:11px;color:var(--hero-fg2);margin-top:2px}
+.stats>div:first-child .v{color:#fff}
+@media (max-width:720px){
+  /* tab bar: thinner, sits closer to the bottom edge */
+  body{padding-bottom:calc(50px + env(safe-area-inset-bottom,0px))}
+  .tabs{padding-top:2px;padding-bottom:max(2px,calc(env(safe-area-inset-bottom,0px) - 16px))}
+  .tab{min-height:42px;padding:3px 0 1px;font-size:10px}
+  .tab svg{width:22px;height:22px}
+  .toast{bottom:calc(62px + env(safe-area-inset-bottom,0px))}
+}
+
+/* ===== tweak v7: history stats in one row ===== */
+.stats{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr) minmax(0,.85fr)!important;gap:8px}
+.stats>div{padding:12px 12px;border-radius:18px;grid-column:auto!important;min-width:0}
+.stats .k{font-size:11px;white-space:nowrap}
+.stats .v{font-size:min(18px,4.5vw);white-space:nowrap;margin-top:4px;letter-spacing:-.3px}
+.stats .sub{font-size:10.5px;color:var(--fg2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats>div:first-child .sub{color:var(--hero-fg2)}
+.stats>div:first-child .v{color:inherit}
+.stats>div:first-child .v.h-up{color:var(--h-up)}.stats>div:first-child .v.h-down{color:var(--h-down)}
+@media (max-width:720px){
+  body{padding-bottom:calc(56px + env(safe-area-inset-bottom,0px))}
+  .tabs{padding-top:4px;padding-bottom:max(4px,calc(env(safe-area-inset-bottom,0px) - 12px))}
+  .tab{min-height:48px;padding:4px 0 2px;font-size:10.5px}
+  .tab svg{width:24px;height:24px}
+  .toast{bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+}
+
+/* start-date sub line may wrap */
+.stats .st-p .sub{white-space:normal;overflow:visible;line-height:1.3}
+.stats .sub .nw{white-space:nowrap}
 </style>
 
 </head>
@@ -779,6 +826,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
           <div class="card">
             <div class="cell"><label for="sMine">本人占比</label><input id="sMine" inputmode="numeric" value="60"><span style="color:var(--fg2)">%</span></div>
             <div class="cell"><label>对方占比</label><span style="margin-left:auto" class="num" id="sOther">40%</span></div>
+            <div class="cell"><label for="sStart">开始日期</label><input id="sStart" type="date" aria-describedby="sStartHint"></div>
             <div class="cell"><label>涨跌颜色</label>
               <div class="seg" role="group" aria-label="涨跌颜色" id="schemeSeg">
                 <button type="button" data-scheme="cn" aria-pressed="true">红涨绿跌</button>
@@ -834,6 +882,8 @@ const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+
 const dnum=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)/864e5;};
 const days=(a,b)=>a&&b?Math.max(0,Math.round(dnum(b)-dnum(a))):0;
 const keyOf=t=>((t.code||'').trim()||(t.name||'').trim()).toUpperCase();
+const START_DEFAULT='2026-09-14';
+function startDate(){const v=S.settings&&S.settings.start;if(/^\d{4}-\d{2}-\d{2}$/.test(v||''))return v;return START_DEFAULT;}
 const share=()=>Math.min(100,Math.max(0,+S.settings.mine||0))/100;
 
 try{const v=localStorage.getItem('pnl.view');if(v)S.view=v;}catch(e){}
@@ -908,8 +958,7 @@ function renderHoldings(C,sh){
   const ql=typeof qLabel==='function'?qLabel():'';
   const sum=`<div class="hsum"><div class="hs-t">持仓合计<span class="qs">${ql}</span></div><div class="hs-g">
     <div class="tile big"><small>总盈亏</small><b class="num ${tcl}">${td(money(tp,true))}</b></div>
-    <div class="tile"><small>盈亏比例</small><b class="num ${tcl}">${td(pct(tc?tp/tc:0))}</b></div>
-    <div class="tile"><small>本人盈亏</small><b class="num mine-b ${tcl}">${td(money(tp*sh,true))}</b></div></div></div>`;
+    <div class="tile"><small>盈亏比例</small><b class="num ${tcl}">${td(pct(tc?tp/tc:0))}</b></div></div></div>`;
   $('#holdList').innerHTML=sum+'<div class="hgrid">'+H.map(x=>{
     const np=x.price==null,c=np?'flat':cls(x.pnl),dash=v=>np?'—':v;
     const lv=(S.live||{})[x.key],dp=lv&&isFinite(lv.pct)?lv.pct:null;
@@ -976,6 +1025,7 @@ function renderRecord(C){
   }
   // settings
   if(document.activeElement!==$('#sMine'))$('#sMine').value=S.settings.mine;
+  if(document.activeElement!==$('#sStart'))$('#sStart').value=startDate()||'';
   $('#sOther').textContent=(100-Math.round(share()*100))+'%';
   $$('#schemeSeg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scheme===(S.settings.scheme||'cn'))));
   // all trades
@@ -1001,7 +1051,9 @@ function renderHistory(C,sh){
   const tot=R.reduce((s,r)=>s+r.pnl,0),win=R.filter(r=>r.pnl>0).length;
   const RD=R.filter(r=>r.days!=null);
   const avgD=RD.length?Math.round(RD.reduce((s,r)=>s+r.days,0)/RD.length):null;
-  $('#histStats').innerHTML=`<div><div class="k">累计已实现</div><div class="v num ${hcls(tot)}">${money(tot,true)}</div></div><div class="t-blue"><div class="k">本人 · ${Math.round(sh*100)}%</div><div class="v num ${cls(tot)}">${money(tot*sh,true)}</div></div><div class="t-purple"><div class="k">对方 · ${Math.round((1-sh)*100)}%</div><div class="v num other-c">${money(tot*(1-sh),true)}</div></div><div class="t-teal"><div class="k">胜率</div><div class="v num">${R.length?Math.round(win/R.length*100)+'%':'—'}</div></div>`;
+  const firstDate=startDate();
+  const period=firstDate?Math.max(1,days(firstDate,today())+1):null;
+  $('#histStats').innerHTML=`<div class="st-mine"><div class="k">本人 · ${Math.round(sh*100)}%</div><div class="v num ${hcls(tot)}">${money(tot*sh,true)}</div><div class="sub num">已实现收益</div></div><div class="st-p"><div class="k">交易期间</div><div class="v num">${period==null?'—':period+' 天'}</div><div class="sub num">${firstDate?'<span class="nw">自 '+(+firstDate.slice(0,4))+'年</span><span class="nw">'+(+firstDate.slice(5,7))+'月'+(+firstDate.slice(8,10))+'日</span>':'暂无交易'}</div></div><div class="st-w"><div class="k">胜率</div><div class="v num">${R.length?Math.round(win/R.length*100)+'%':'—'}</div><div class="sub num">${R.length?win+' 胜 / '+R.length+' 笔':'暂无卖出'}</div></div>`;
   const q=S.q.trim().toUpperCase();
   const L=q?R.filter(r=>(r.name||'').toUpperCase().includes(q)||(r.code||'').toUpperCase().includes(q)):R;
   $('#histMeta').textContent=R.length?R.length+' 笔卖出':'';
@@ -1130,6 +1182,7 @@ async function saveSettings(patch){
   const s=Object.assign({},S.settings,patch);S.settings=s;render();
   try{if(S.db)await S.db.doc('settings/main').set(s);}catch(x){toast('设置没有保存成功');}
 }
+$('#sStart').addEventListener('change',()=>{const v=$('#sStart').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return;saveSettings({start:v});toast('开始日期已更新');});
 $('#sMine').addEventListener('change',()=>{let v=Math.round(parseFloat($('#sMine').value));if(!isFinite(v))v=60;v=Math.min(100,Math.max(0,v));$('#sMine').value=v;saveSettings({mine:v});toast('分成比例已更新');});
 $('#schemeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(b)saveSettings({scheme:b.dataset.scheme});});
 $('#showAll').addEventListener('click',()=>{S.showAll=true;render();});
