@@ -474,7 +474,7 @@ function render(){
 function qText(){const q=S.qStat;if(!q)return '';if(q.err)return Object.keys(S.live).length?'上次行情 '+(q.t||''):'行情暂不可用';if(q.cached)return '上次行情 '+q.t;return (tradingNow()?'实时 ':'收盘 ')+q.t;}
 function renderHolds(C,sh){
   const H=C.holds,allP=H.every(h=>h.price!=null),fp=H.reduce((a,h)=>a+h.pnl,0),fc=H.reduce((a,h)=>a+h.cost,0),c0=allP?cl(fp):'flat',D=v=>allP?v:'—';
-  $('#holdR').textContent=H.length?(H.length+' 只'+(qText()?' · '+qText():'')):'';
+  $('#holdR').textContent=H.length?(H.length+' 只 · 市值 '+nf.format(H.reduce((a,h)=>a+h.mv,0))):'';
   if(!S.loaded){$('#holds').innerHTML='<div class="tot"><span class="tl">正在读取记录…</span></div>';return;}
   if(!H.length){$('#holds').innerHTML='<div class="tot"><span class="tl">暂无持仓，点右上角 + 记一笔</span></div>';return;}
   $('#holds').innerHTML=`<div class="tot"><div><span class="tl">浮动盈亏</span><b class="n ${c0}">${D(m(fp,true))}</b><span class="tp n ${c0}">${D(pc(fc?fp/fc*100:0))}</span></div>
@@ -484,7 +484,7 @@ function renderHolds(C,sh){
       <div class="row">
         <button class="hit nm" type="button" data-h="${esc(h.key)}" aria-expanded="${o}"><b>${esc(h.name)}</b><small class="n">${h.days}天</small></button>
         <button class="pxbtn" type="button" data-edit="${esc(h.key)}" aria-label="调整 ${esc(h.name)} 的成本价和股数"><b class="n">${np?'—':nf.format(h.price)}</b>${h.dp==null?'':`<small class="n ${cl(h.dp)}">${pc(h.dp)}</small>`}</button>
-        <button class="hit pl" type="button" data-h="${esc(h.key)}" aria-expanded="${o}"><b class="n ${c}">${np?'—':m(h.pnl,true)}</b><small class="pp n ${c}">${np?'等待行情':pc(h.pct*100)}</small></button>
+        <div class="pl"><b class="n ${c}">${np?'—':m(h.pnl,true)}</b><small class="pp n ${c}">${np?'等待行情':pc(h.pct*100)}</small></div>
       </div>
       <div class="detail"${o?'':' hidden'}>
         <div><small>成本</small><b>${nf.format(h.avg)}</b></div><div><small>持股</small><b>${nfi.format(h.qty)}</b></div><div><small>市值</small><b>${nf.format(h.mv)}</b></div>
@@ -812,7 +812,7 @@ function startQuotes(){
   tick();
 }
 
-function updQ(){const H=lastC?lastC.holds:[];$('#holdR').textContent=H.length?(H.length+' 只'+(qText()?' · '+qText():'')):'';}
+function updQ(){}
 
 
 /* ---------- boot ---------- */
