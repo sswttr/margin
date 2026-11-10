@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#F2F3F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#EEF0F4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0C0D10" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
 <title>Margin</title>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
 <style>
 /* Layout: a single statement page — hero with cumulative curve and 60/40 split, holdings (totals first, one row per stock), monthly ledger; one + opens entry */
 :root{
@@ -296,6 +296,83 @@ body[data-scheme="us"] .facts b.up{color:var(--down)}body[data-scheme="us"] .fac
 .imp p{margin:0}.imp-a{display:flex;gap:8px}
 .mdetail small{font-size:11.5px;font-weight:500;opacity:.8;margin-left:4px}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--link:#2F5BD3}}
+
+/* ===== refine: rhythm, alignment, touch feedback ===== */
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#EEF0F4}}
+:root[data-theme="light"]{--bg:#EEF0F4}
+.wrap{gap:26px}
+.top{padding-block:12px 8px}
+.iconbtn{width:34px;height:34px;transition:transform .12s,background .12s}
+.iconbtn:active{transform:scale(.92)}
+.tools{gap:8px}
+.hero{gap:9px}
+.big{letter-spacing:-.8px}
+.split{height:5px;border-radius:3px}
+.sec{gap:10px}
+.panel{border-radius:18px}
+.tot{padding:14px 16px 12px}
+.ts{gap:4px}
+.ts span{display:flex;justify-content:space-between;gap:10px;min-width:148px}
+.thead{padding:7px 16px 5px}
+.row{padding:7px 16px;min-height:50px}
+.nm b{font-size:15.5px}
+.pxbtn b,.pl b{font-size:15px;line-height:1.2}
+.pxbtn small,.pl .pp{font-size:11.5px;line-height:1.25}
+.pl{gap:1px}
+.detail{padding:2px 16px 14px}
+.hit.nm{transition:opacity .12s}
+.hit.nm:active,.pxbtn:active,.mrow:active{opacity:.55}
+.item.open .nm b{color:var(--fab,#2F5BD3)}
+.yr{padding:10px 16px}
+.mrow{padding:10px 12px 10px 16px;gap:12px}
+.mrow .m{font-size:19px;width:42px}
+.mrow .c{font-size:11.5px}
+.mrow b{font-size:15px}
+.mrow svg{margin-left:-4px}
+.mdetail{padding:0 16px 8px 70px}
+.mdetail div{padding:6px 0;font-size:13px}
+/* ===== polish: hierarchy, depth, alignment ===== */
+.dec{font-style:normal;font-size:.58em;font-weight:600;letter-spacing:0;opacity:.78;margin-left:1px}
+.top{margin-inline:-16px;padding-inline:16px;background:color-mix(in srgb,var(--bg) 84%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+.brand span{font-family:var(--num);font-weight:500;letter-spacing:.2px}
+.eyebrow{letter-spacing:.2px}
+.big{font-weight:700;letter-spacing:-1px;margin-top:-2px}
+.split{margin-top:6px}
+.facts{justify-content:space-between;flex-wrap:nowrap;gap:8px;white-space:nowrap}
+.sec-h h2{font-size:13.5px;letter-spacing:1px}
+.sec-h .r{font-family:var(--num);font-weight:500}
+.panel{box-shadow:0 1px 2px rgba(17,19,23,.04),0 10px 28px -18px rgba(17,19,23,.18)}
+:root[data-theme="dark"] .panel{box-shadow:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .panel{box-shadow:none}}
+.tot{align-items:center;padding:14px 16px 13px}
+.tot>div:first-child b{font-size:23px;font-weight:700;letter-spacing:-.3px}
+.tot .ts b{font-size:14px;font-weight:600;letter-spacing:0}
+.tot .ts{display:grid;grid-template-columns:auto auto;gap:5px 12px;align-items:baseline;text-align:left}
+.tot .ts span{display:contents}
+.ts b{text-align:right}
+.thead{background:var(--raise);border-top:1px solid var(--line);padding:6px 16px;margin-top:-1px}
+.nm small{color:var(--muted);font-weight:500}
+.nm b{letter-spacing:.2px}
+.pxbtn b{border-bottom-style:dotted;border-bottom-color:var(--faint)}
+.pl .pp{opacity:.9}
+.item.open{background:none}
+.item.open .row{background:var(--raise)}
+.detail{background:var(--raise);padding:10px 16px 14px;gap:10px;border-top:1px dashed var(--line2)}
+.detail small{font-size:11px}
+.detail b{font-size:14px}
+.detail .act{padding-top:2px}
+.detail .act .btn{min-height:36px;border-radius:10px}
+.detail .act .btn.ghost{background:var(--surface)}
+.mrow .m{color:var(--ink)}
+.mrow .c{gap:0}
+.mrow svg{margin-left:-2px}
+.mdetail div{border-top-style:dashed}
+.calc{align-items:center;padding:8px 2px 0;margin-top:-4px}
+.calc+.calc{border-top:0;padding-top:0;margin-top:-6px}
+.f input{transition:border-color .15s,box-shadow .15s;min-height:46px;-webkit-appearance:none;appearance:none}
+.f input:focus,.paste textarea:focus{outline:none;border-color:var(--fab);box-shadow:0 0 0 3px color-mix(in srgb,var(--fab) 18%,transparent)}
+.btn{transition:transform .12s,opacity .12s}
+.btn:active{transform:scale(.98);opacity:.85}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -419,6 +496,7 @@ const nf=new Intl.NumberFormat('zh-CN',{minimumFractionDigits:2,maximumFractionD
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sg=v=>v>1e-9?'+':v<-1e-9?'−':'';
 const m=(v,s)=>(s?sg(v):(v<-1e-9?'−':''))+nf.format(Math.abs(v));
+const md=(v,s)=>m(v,s).replace(/(\.\d+)$/,'<i class="dec">$1</i>');
 const pc=v=>sg(v)+Math.abs(v).toFixed(2)+'%';
 const cl=v=>v>1e-9?'up':v<-1e-9?'down':'flat';
 const pad=n=>String(n).padStart(2,'0');
@@ -462,7 +540,7 @@ function render(){
   document.body.dataset.scheme=S.settings.scheme==='us'?'us':'cn';
   const d=new Date();$('#today').textContent=(d.getMonth()+1)+'月'+d.getDate()+'日';
   const st=startDate();$('#since').textContent=' · 自 '+st.replace(/-/g,'/');
-  const big=$('#mine');big.textContent=m(mine,true);big.className='big n '+cl(mine);
+  const big=$('#mine');big.innerHTML=md(mine,true);big.className='big n '+cl(mine);
   $('#otherV').textContent=m(other,true);
   $('#lgA').textContent='本人 '+Math.round(sh*100)+'%';$('#lgB').textContent='对方 '+Math.round((1-sh)*100)+'% ';
   $('#barA').style.flex=String(sh||0.0001);$('#barB').style.flex=String((1-sh)||0.0001);
@@ -477,7 +555,7 @@ function renderHolds(C,sh){
   $('#holdR').textContent=H.length?(H.length+' 只 · 市值 '+nf.format(H.reduce((a,h)=>a+h.mv,0))):'';
   if(!S.loaded){$('#holds').innerHTML='<div class="tot"><span class="tl">正在读取记录…</span></div>';return;}
   if(!H.length){$('#holds').innerHTML='<div class="tot"><span class="tl">暂无持仓，点右上角 + 记一笔</span></div>';return;}
-  $('#holds').innerHTML=`<div class="tot"><div><span class="tl">浮动盈亏</span><b class="n ${c0}">${D(m(fp,true))}</b><span class="tp n ${c0}">${D(pc(fc?fp/fc*100:0))}</span></div>
+  $('#holds').innerHTML=`<div class="tot"><div><span class="tl">浮动盈亏</span><b class="n ${c0}">${D(md(fp,true))}</b><span class="tp n ${c0}">${D(pc(fc?fp/fc*100:0))}</span></div>
       <div class="ts"><span>本人 <b class="n ${c0}">${D(m(fp*sh,true))}</b></span><span>对方 <b class="n ${c0}">${D(m(fp*(1-sh),true))}</b></span></div></div>
     <div class="thead"><span>股票</span><span>现价</span><span>浮动盈亏</span></div>`+
     H.map(h=>{const o=!!S.open[h.key],np=h.price==null,c=np?'flat':cl(h.pnl);return `<div class="item${o?' open':''}">
@@ -497,7 +575,7 @@ function renderMonths(C,sh){
   const ks=Object.keys(by).sort().reverse(),yrs=[...new Set(ks.map(k=>k.slice(0,4)))];
   if(!S.loaded){$('#months').innerHTML='<div class="yr"><span>正在读取记录…</span></div>';return;}
   $('#months').innerHTML=yrs.map(y=>{const yk=ks.filter(k=>k.startsWith(y)),yt=yk.reduce((a,k)=>a+by[k].reduce((b,r)=>b+r.pnl,0),0);
-    return `<div class="yr"><span>${y} 年 · 本人 <span class="n">${m(yt*sh,true)}</span></span><b class="n ${cl(yt)}">${m(yt,true)}</b></div>`+yk.map(k=>{const L=by[k],t=L.reduce((a,r)=>a+r.pnl,0),o=!!S.openM[k];
+    return (yrs.length>1?`<div class="yr"><span>${y} 年 · 本人 <span class="n">${m(yt*sh,true)}</span></span><b class="n ${cl(yt)}">${m(yt,true)}</b></div>`:'')+yk.map(k=>{const L=by[k],t=L.reduce((a,r)=>a+r.pnl,0),o=!!S.openM[k];
       return `<div class="month"><button class="mrow" type="button" data-m="${k}" aria-expanded="${o}"><span class="m">${+k.slice(5)}<sub>月</sub></span><span class="c"><span>${L.length} 笔</span><span class="n">本人 ${m(t*sh,true)}</span></span><b class="n ${cl(t)}">${m(t,true)}</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <div class="mdetail"${o?'':' hidden'}>${L.map(r=>`<div><span>${esc(r.name)} · ${r.date.slice(5).replace('-','/')}${r.days!=null?' · '+r.days+'天':''}</span><b class="n ${cl(r.pnl)}">${m(r.pnl,true)}${r.pct!=null?` <small>${pc(r.pct*100)}</small>`:''}</b></div>`).join('')}</div></div>`;}).join('');}).join('')||'<div class="yr"><span>卖出股票后，每个月的收益会列在这里</span></div>';
 }
