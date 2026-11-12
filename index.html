@@ -429,7 +429,7 @@ body[data-scheme="us"] .facts b.up{color:var(--down)}body[data-scheme="us"] .fac
   </div>
   <div class="calc" data-t><span>成交金额</span><b id="calcV" class="n">0.00</b></div>
   <div class="calc" data-t><span>手续费（自动）</span><b id="feeV" class="n">0.00</b></div>
-  <div class="calc" id="pnlRow" hidden><span>这笔盈亏</span><b id="pnlV" class="n">—</b></div>
+  <div class="calc" id="pnlRow" hidden><span>清仓盈亏</span><b id="pnlV" class="n">—</b></div>
   <div class="err" id="err" role="alert"></div>
   <button class="btn wide" type="button" id="save">记录买入</button>
 </div>
@@ -517,19 +517,20 @@ function compute(){
     if(!t.name||!t.date)continue;
     if(t.side==='history'){const r={id:t.id,name:t.name,date:t.date,pnl:+t.pnl||0,pct:null,days:null,hist:true};real.push(r);byId[t.id]=r;continue;}
     const k=keyOf(t),p=pos[k]||(pos[k]={key:k,name:t.name,qty:0,cost:0,open:null});
-    if(t.side==='adjust'){const q=+t.qty||0,a=+t.avg||0;if(q>0&&a>0){p.qty=q;p.cost=a*q;if(!p.open)p.open=t.date;}continue;}
+    if(t.side==='adjust'){const q=+t.qty||0,a=+t.avg||0;if(q>0&&a>0){p.qty=q;p.cost=a*q;p.inv=a*q;if(!p.open)p.open=t.date;}continue;}
     const q=+t.qty||0,pr=+t.price||0,fee=+t.fee||0;
-    if(t.side==='buy'){if(p.qty<=1e-9){p.qty=0;p.cost=0;p.open=t.date;}p.qty+=q;p.cost+=pr*q+fee;}
-    else if(t.side==='sell'){if(p.qty<=1e-9)continue;const sq=Math.min(q,p.qty),co=p.cost/p.qty*sq,pnl=pr*sq-fee-co;
-      const r={id:t.id,name:p.name,date:t.date,pnl,pct:co?pnl/co:0,days:days(p.open,t.date)};real.push(r);byId[t.id]=r;
-      p.qty-=sq;p.cost-=co;if(p.qty<=1e-9){p.qty=0;p.cost=0;p.open=null;}}
+    if(t.side==='buy'){if(p.qty<=1e-9){p.qty=0;p.cost=0;p.inv=0;p.open=t.date;}p.qty+=q;p.cost+=pr*q+fee;p.inv=(p.inv||0)+pr*q+fee;}
+    else if(t.side==='sell'){if(p.qty<=1e-9)continue;const sq=Math.min(q,p.qty);
+      /* partial sells stay on the position: proceeds reduce its cost; P&L is booked once, when fully closed */
+      p.cost-=pr*sq-fee;p.qty-=sq;
+      if(p.qty<=1e-9){const pnl=-p.cost,r={id:t.id,name:p.name,date:t.date,pnl,pct:p.inv?pnl/p.inv:0,days:days(p.open,t.date)};real.push(r);byId[t.id]=r;p.qty=0;p.cost=0;p.inv=0;p.open=null;}}
   }
   const td=today();
   let holds=Object.values(pos).filter(p=>p.qty>1e-9).map(p=>{
     const lv=S.live[p.key],qd=S.quotes[p.key];
     const price=lv&&lv.price>0?lv.price:(qd&&+qd.price>0?+qd.price:null);
     const avg=p.cost/p.qty,mv=(price!=null?price:avg)*p.qty,pnl=price!=null?mv-p.cost:0;
-    return Object.assign({},p,{avg,price,dp:lv&&isFinite(lv.pct)?lv.pct:null,mv,pnl,pct:price!=null&&p.cost?pnl/p.cost:null,days:days(p.open,td)});
+    return Object.assign({},p,{avg,price,dp:lv&&isFinite(lv.pct)?lv.pct:null,mv,pnl,pct:price!=null&&p.inv?pnl/p.inv:null,days:days(p.open,td)});
   }).sort((a,b)=>b.mv-a.mv);
   return {ts,real,byId,holds,tot:real.reduce((a,r)=>a+r.pnl,0)};
 }
@@ -551,7 +552,7 @@ function render(){
 }
 function qText(){const q=S.qStat;if(!q)return '';if(q.err)return Object.keys(S.live).length?'上次行情 '+(q.t||''):'行情暂不可用';if(q.cached)return '上次行情 '+q.t;return (tradingNow()?'实时 ':'收盘 ')+q.t;}
 function renderHolds(C,sh){
-  const H=C.holds,allP=H.every(h=>h.price!=null),fp=H.reduce((a,h)=>a+h.pnl,0),fc=H.reduce((a,h)=>a+h.cost,0),c0=allP?cl(fp):'flat',D=v=>allP?v:'—';
+  const H=C.holds,allP=H.every(h=>h.price!=null),fp=H.reduce((a,h)=>a+h.pnl,0),fc=H.reduce((a,h)=>a+h.inv,0),c0=allP?cl(fp):'flat',D=v=>allP?v:'—';
   $('#holdR').textContent=H.length?(H.length+' 只 · 市值 '+nf.format(H.reduce((a,h)=>a+h.mv,0))):'';
   if(!S.loaded){$('#holds').innerHTML='<div class="tot"><span class="tl">正在读取记录…</span></div>';return;}
   if(!H.length){$('#holds').innerHTML='<div class="tot"><span class="tl">暂无持仓，点右上角 + 记一笔</span></div>';return;}
@@ -629,7 +630,7 @@ function fee(){const a=num('#fPrice')*num('#fQty');return Math.round(a*(S.kind==
 function calc(){
   const a=num('#fPrice')*num('#fQty');$('#calcV').textContent=nf.format(a);$('#feeV').textContent=nf.format(fee());
   const p=lastC&&lastC.holds.find(x=>x.name===$('#fName').value.trim());
-  if(S.kind==='sell'&&p&&a>0){const q=Math.min(num('#fQty'),p.qty),v=num('#fPrice')*q-fee()-p.avg*q;$('#pnlRow').hidden=false;$('#pnlV').textContent=m(v,true);$('#pnlV').className='n '+cl(v);}
+  if(S.kind==='sell'&&p&&a>0&&num('#fQty')>=p.qty-1e-9){const q=p.qty,v=num('#fPrice')*q-fee()-p.cost;$('#pnlRow').hidden=false;$('#pnlV').textContent=m(v,true);$('#pnlV').className='n '+cl(v);}
   else $('#pnlRow').hidden=true;
 }
 ['#fPrice','#fQty','#fName'].forEach(s=>$(s).addEventListener('input',()=>{$('#err').textContent='';calc();}));
