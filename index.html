@@ -374,6 +374,26 @@ body[data-scheme="us"] .facts b.up{color:var(--down)}body[data-scheme="us"] .fac
 .btn{transition:transform .12s,opacity .12s}
 .btn:active{transform:scale(.98);opacity:.85}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ===== swipe-to-delete + pending settlement ===== */
+#kind{grid-template-columns:repeat(4,1fr)}
+.sw{position:relative;overflow:hidden}
+.sw>[data-swrow]{position:relative;z-index:1;background:var(--surface);transition:transform .22s ease;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.sw.drag>[data-swrow]{transition:none}
+.sw.swiped>[data-swrow]{transform:translateX(-76px)}
+.sw-act{position:absolute;top:0;right:0;bottom:0;display:flex;opacity:0}
+.sw.drag .sw-act,.sw.swiped .sw-act{opacity:1}
+.sw-act button{border:0;width:76px;color:#fff;font-weight:600;font-size:14px;cursor:pointer;background:#E5484D}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px;min-height:52px}
+.pn{display:flex;flex-direction:column;gap:1px;min-width:0}
+.pn b{font-size:15.5px;font-weight:600;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pn small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.pv b{font-family:var(--num);font-size:15px;font-weight:600;white-space:nowrap}
+.pv small{font-family:var(--num);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.pfoot{padding:12px 16px 14px;border-top:1px solid var(--line)}
+.pfoot .btn{width:100%;min-height:42px;background:var(--fab);color:var(--fab-ink)}
+.pfoot .btn[data-armed]{background:var(--up);color:#fff}
+.pempty{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -393,6 +413,11 @@ body[data-scheme="us"] .facts b.up{color:var(--down)}body[data-scheme="us"] .fac
     <div class="split" aria-hidden="true"><i class="a" id="barA"></i><i class="b" id="barB"></i></div>
     <div class="legend"><span><i class="dot a"></i><span id="lgA">本人 60%</span></span><span><i class="dot b"></i><span id="lgB">对方 40% </span><b class="n" id="otherV"></b></span></div>
     <div class="facts" id="facts"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><h2>待结算</h2><span class="r" id="pendR"></span></div>
+    <div class="panel" id="pend"></div>
   </section>
 
   <section class="sec">
@@ -416,6 +441,7 @@ body[data-scheme="us"] .facts b.up{color:var(--down)}body[data-scheme="us"] .fac
     <button type="button" data-k="buy" aria-pressed="true">买入</button>
     <button type="button" data-k="sell" aria-pressed="false">卖出</button>
     <button type="button" data-k="history" aria-pressed="false">历史盈亏</button>
+    <button type="button" data-k="pending" aria-pressed="false">待结算</button>
   </div>
   <div class="paste"><label for="pasteBox">粘贴券商的成交回报，自动识别</label><textarea id="pasteBox" placeholder="例如：卖出 汇金股份 成交价 9.20 成交数量 30000 股"></textarea></div>
   <div class="picks" id="picks" aria-label="持仓股票"></div>
@@ -423,7 +449,7 @@ body[data-scheme="us"] .facts b.up{color:var(--down)}body[data-scheme="us"] .fac
     <div class="f full"><label for="fName">股票名称</label><input id="fName" autocomplete="off" placeholder="股票名称"></div>
     <div class="f" data-t><label for="fPrice">成交价</label><input id="fPrice" inputmode="decimal" placeholder="0.00"></div>
     <div class="f" data-t><label for="fQty">数量（股）</label><input id="fQty" inputmode="numeric" placeholder="0"></div>
-    <div class="f full" data-hf hidden><label for="fPnl">总盈亏（亏损填负数）</label><input id="fPnl" inputmode="decimal" placeholder="0.00"></div>
+    <div class="f full" data-hf hidden><label for="fPnl" id="fPnlL">总盈亏（亏损填负数）</label><input id="fPnl" inputmode="decimal" placeholder="0.00"></div>
     <div class="f"><label for="fDate">日期</label><input id="fDate" type="date"></div>
     <div class="f"><label for="fNote">备注</label><input id="fNote" placeholder="选填"></div>
   </div>
@@ -512,11 +538,14 @@ let lastC=null;
 /* ---------- core calc: moving weighted average cost ---------- */
 function compute(){
   const ts=S.trades.map((t,i)=>Object.assign({i},t)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.createdAt||0)-(b.createdAt||0))||a.i-b.i);
-  const pos={},real=[],byId={};
+  const pos={},real=[],byId={},pend=[];
   for(const t of ts){
     if(!t.name||!t.date)continue;
     if(t.side==='history'){const r={id:t.id,name:t.name,date:t.date,pnl:+t.pnl||0,pct:null,days:null,hist:true};real.push(r);byId[t.id]=r;continue;}
+    if(t.side==='pending'){pend.push({id:t.id,name:t.name,date:t.date,pnl:+t.pnl||0,note:t.note||''});continue;}
     const k=keyOf(t),p=pos[k]||(pos[k]={key:k,name:t.name,qty:0,cost:0,open:null});
+    /* removed by swipe: position is cleared and its P&L is never booked */
+    if(t.side==='drop'){p.qty=0;p.cost=0;p.inv=0;p.open=null;continue;}
     if(t.side==='adjust'){const q=+t.qty||0,a=+t.avg||0;if(q>0&&a>0){p.qty=q;p.cost=a*q;p.inv=a*q;if(!p.open)p.open=t.date;}continue;}
     const q=+t.qty||0,pr=+t.price||0,fee=+t.fee||0;
     if(t.side==='buy'){if(p.qty<=1e-9){p.qty=0;p.cost=0;p.inv=0;p.open=t.date;}p.qty+=q;p.cost+=pr*q+fee;p.inv=(p.inv||0)+pr*q+fee;}
@@ -532,11 +561,14 @@ function compute(){
     const avg=p.cost/p.qty,mv=(price!=null?price:avg)*p.qty,pnl=price!=null?mv-p.cost:0;
     return Object.assign({},p,{avg,price,dp:lv&&isFinite(lv.pct)?lv.pct:null,mv,pnl,pct:price!=null&&p.inv?pnl/p.inv:null,days:days(p.open,td)});
   }).sort((a,b)=>b.mv-a.mv);
-  return {ts,real,byId,holds,tot:real.reduce((a,r)=>a+r.pnl,0)};
+  pend.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  return {ts,real,byId,holds,pend,tot:real.reduce((a,r)=>a+r.pnl,0)};
 }
 
 /* ---------- render ---------- */
+let needRender=false;
 function render(){
+  if(S.dragging){needRender=true;return;}
   const C=compute(),sh=share(),mine=C.tot*sh,other=C.tot*(1-sh);lastC=C;
   document.body.dataset.scheme=S.settings.scheme==='us'?'us':'cn';
   const d=new Date();$('#today').textContent=(d.getMonth()+1)+'月'+d.getDate()+'日';
@@ -547,7 +579,7 @@ function render(){
   $('#barA').style.flex=String(sh||0.0001);$('#barB').style.flex=String((1-sh)||0.0001);
   const wins=C.real.filter(r=>r.pnl>0).length;
   $('#facts').innerHTML=`<span>合计 <b class="n ${cl(C.tot)}">${m(C.tot,true)}</b></span><span>交易 <b class="n">${days(st,today())+1}</b> 天</span><span>胜率 <b class="n">${C.real.length?Math.round(wins/C.real.length*100):0}%</b></span>`;
-  renderHolds(C,sh);renderMonths(C,sh);
+  renderPend(C,sh);renderHolds(C,sh);renderMonths(C,sh);
   if(!$('#setSheet').hidden)renderSettings(C);
 }
 function qText(){const q=S.qStat;if(!q)return '';if(q.err)return Object.keys(S.live).length?'上次行情 '+(q.t||''):'行情暂不可用';if(q.cached)return '上次行情 '+q.t;return (tradingNow()?'实时 ':'收盘 ')+q.t;}
@@ -559,17 +591,30 @@ function renderHolds(C,sh){
   $('#holds').innerHTML=`<div class="tot"><div><span class="tl">浮动盈亏</span><b class="n ${c0}">${D(md(fp,true))}</b><span class="tp n ${c0}">${D(pc(fc?fp/fc*100:0))}</span></div>
       <div class="ts"><span>本人 <b class="n ${c0}">${D(m(fp*sh,true))}</b></span><span>对方 <b class="n ${c0}">${D(m(fp*(1-sh),true))}</b></span></div></div>
     <div class="thead"><span>股票</span><span>现价</span><span>浮动盈亏</span></div>`+
-    H.map(h=>{const o=!!S.open[h.key],np=h.price==null,c=np?'flat':cl(h.pnl);return `<div class="item${o?' open':''}">
-      <div class="row">
+    H.map(h=>{const o=!!S.open[h.key],np=h.price==null,c=np?'flat':cl(h.pnl),sid='h:'+h.key;return `<div class="item${o?' open':''}">
+      <div class="sw${S.swiped===sid?' swiped':''}" data-sw="${esc(sid)}"><div class="row" data-swrow>
         <button class="hit nm" type="button" data-h="${esc(h.key)}" aria-expanded="${o}"><b>${esc(h.name)}</b><small class="n">${h.days}天</small></button>
         <button class="pxbtn" type="button" data-edit="${esc(h.key)}" aria-label="调整 ${esc(h.name)} 的成本价和股数"><b class="n">${np?'—':nf.format(h.price)}</b>${h.dp==null?'':`<small class="n ${cl(h.dp)}">${pc(h.dp)}</small>`}</button>
         <div class="pl"><b class="n ${c}">${np?'—':m(h.pnl,true)}</b><small class="pp n ${c}">${np?'等待行情':pc(h.pct*100)}</small></div>
-      </div>
+      </div><div class="sw-act"><button type="button" data-swdel="${esc(sid)}" aria-label="删除 ${esc(h.name)}">删除</button></div></div>
       <div class="detail"${o?'':' hidden'}>
         <div><small>成本</small><b>${nf.format(h.avg)}</b></div><div><small>持股</small><b>${nfi.format(h.qty)}</b></div><div><small>市值</small><b>${nf.format(h.mv)}</b></div>
         <div><small>本人 ${Math.round(sh*100)}%</small><b class="${c}">${np?'—':m(h.pnl*sh,true)}</b></div><div><small>对方 ${Math.round((1-sh)*100)}%</small><b class="${c}">${np?'—':m(h.pnl*(1-sh),true)}</b></div><div><small>建仓</small><b>${h.open?h.open.slice(5).replace('-','/'):'—'}</b></div>
         <div class="act"><button class="btn ghost" type="button" data-trade="buy" data-n="${esc(h.name)}">加仓</button><button class="btn" type="button" data-trade="sell" data-n="${esc(h.name)}">卖出</button></div>
       </div></div>`;}).join('');
+}
+function renderPend(C,sh){
+  const P=C.pend,t=P.reduce((a,r)=>a+r.pnl,0),c=cl(t);
+  $('#pendR').textContent=P.length?P.length+' 笔':'';
+  if(!S.loaded){$('#pend').innerHTML='<div class="pempty">正在读取记录…</div>';return;}
+  if(!P.length){$('#pend').innerHTML='<div class="pempty"><span>暂无待结算的盈亏</span><button class="link" type="button" data-addk="pending">记一笔</button></div>';return;}
+  $('#pend').innerHTML=`<div class="tot"><div><span class="tl">待结算盈亏</span><b class="n ${c}">${md(t,true)}</b></div>
+      <div class="ts"><span>本人 <b class="n ${c}">${m(t*sh,true)}</b></span><span>对方 <b class="n ${c}">${m(t*(1-sh),true)}</b></span></div></div>`+
+    P.map(r=>{const sid='p:'+r.id,rc=cl(r.pnl);return `<div class="item"><div class="sw${S.swiped===sid?' swiped':''}" data-sw="${esc(sid)}">
+      <div class="prow" data-swrow><div class="pn"><b>${esc(r.name)}</b><small>${r.date.replace(/-/g,'/')}${r.note?' · '+esc(r.note):''}</small></div>
+        <div class="pv"><b class="${rc}">${m(r.pnl,true)}</b><small>本人 ${m(r.pnl*sh,true)}</small></div></div>
+      <div class="sw-act"><button type="button" data-swdel="${esc(sid)}" aria-label="删除 ${esc(r.name)}">删除</button></div></div></div>`;}).join('')+
+    `<div class="pfoot"><button class="btn" type="button" data-settle${S.settleArmed?' data-armed="1"':''}>${S.settleArmed?'确认结算，计入已实现收益':'结算 '+P.length+' 笔'}</button></div>`;
 }
 function renderMonths(C,sh){
   const by={};for(const r of C.real){const k=r.date.slice(0,7);(by[k]=by[k]||[]).push(r);}
@@ -593,7 +638,58 @@ document.addEventListener('click',e=>{
   const del=e.target.closest('[data-del]');if(del){delTrade(del);return;}
   const cs=e.target.closest('[data-csave]');if(cs){saveCode(cs.dataset.csave);return;}
   const ss=e.target.closest('[data-sheet]');if(ss){openSettings();return;}
+  const ak=e.target.closest('[data-addk]');if(ak){openAdd(ak.dataset.addk);return;}
+  const sd=e.target.closest('[data-swdel]');if(sd){swipeDelete(sd.dataset.swdel);return;}
+  if(e.target.closest('[data-settle]')){settleAll();return;}
 });
+
+/* ---------- swipe left to reveal 删除 ---------- */
+let SW=null,swallow=0,settleT=null;
+function closeSwipe(){S.swiped=null;$$('.sw.swiped').forEach(x=>x.classList.remove('swiped'));}
+document.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.sw-act'))return;
+  const row=e.target.closest('[data-swrow]'),sw=row&&row.parentElement;
+  if(S.swiped&&(!sw||sw.dataset.sw!==S.swiped)){closeSwipe();swallow=Date.now();}
+  if(!row||(e.pointerType==='mouse'&&e.button!==0))return;
+  const w=sw.querySelector('.sw-act').offsetWidth||76;
+  SW={el:sw,row,w,x0:e.clientX,y0:e.clientY,x:0,mode:null,base:sw.classList.contains('swiped')?-w:0,pid:e.pointerId};
+},true);
+document.addEventListener('pointermove',e=>{
+  if(!SW||e.pointerId!==SW.pid)return;
+  const dx=e.clientX-SW.x0,dy=e.clientY-SW.y0;
+  if(!SW.mode){if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+    SW.mode=Math.abs(dx)>Math.abs(dy)?'h':'v';
+    if(SW.mode==='h'){S.dragging=true;SW.el.classList.add('drag');try{SW.row.setPointerCapture(e.pointerId);}catch(x){}}}
+  if(SW.mode!=='h')return;
+  SW.x=Math.min(0,Math.max(-SW.w-24,SW.base+dx));SW.row.style.transform='translateX('+SW.x+'px)';
+});
+function swEnd(e){
+  if(!SW||e.pointerId!==SW.pid)return;
+  const s=SW;SW=null;
+  if(s.mode==='h'){const open=s.x<-s.w/2;s.el.classList.remove('drag');s.row.style.transform='';
+    closeSwipe();if(open){s.el.classList.add('swiped');S.swiped=s.el.dataset.sw;}swallow=Date.now();}
+  else if(!s.mode&&s.base){closeSwipe();swallow=Date.now();}
+  S.dragging=false;if(needRender){needRender=false;render();}
+}
+document.addEventListener('pointerup',swEnd);document.addEventListener('pointercancel',swEnd);
+document.addEventListener('click',e=>{if(Date.now()-swallow<500&&!e.target.closest('.sw-act')){e.stopPropagation();e.preventDefault();}},true);
+async function swipeDelete(sid){
+  closeSwipe();
+  try{
+    if(sid.startsWith('h:')){const h=lastC.holds.find(x=>x.key===sid.slice(2));if(!h)return;
+      delete S.open[h.key];await addTrade({name:h.name,side:'drop',date:today(),qty:h.qty});toast('已删除 '+h.name);}
+    else{await S.db.doc('trades/'+sid.slice(2)).delete();toast('已删除');}
+  }catch(x){toast('删除失败，请重试');}
+}
+async function settleAll(){
+  const P=lastC.pend;if(!P.length)return;
+  if(!S.settleArmed){S.settleArmed=true;render();clearTimeout(settleT);settleT=setTimeout(()=>{S.settleArmed=false;render();},4000);return;}
+  clearTimeout(settleT);S.settleArmed=false;
+  try{for(const r of P){const t=S.trades.find(x=>x.id===r.id);if(!t)continue;
+      const c=Object.assign({},t);delete c.id;c.side='history';c.settledAt=Date.now();await S.db.doc('trades/'+r.id).set(c);}
+    toast('已结算 '+P.length+' 笔');
+  }catch(x){toast('结算失败，请重试');render();}
+}
 let lastFocus=null;
 function openSheet(id){lastFocus=document.activeElement;$('#scrim').hidden=false;$$('.sheet').forEach(s=>s.hidden=s.id!==id);document.body.style.overflow='hidden';}
 function closeAll(){$('#scrim').hidden=true;$$('.sheet').forEach(s=>s.hidden=true);document.body.style.overflow='';$('#impConfirm').hidden=true;if(lastFocus&&lastFocus.focus)lastFocus.focus({preventScroll:true});}
@@ -615,8 +711,9 @@ $('#eSave').addEventListener('click',async()=>{const a=num('#eAvg'),q=Math.round
 
 /* entry */
 function setKind(k){S.kind=k;$$('#kind [data-k]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.k===k)));
-  const hi=k==='history';$$('[data-t]').forEach(x=>x.hidden=hi);$$('[data-hf]').forEach(x=>x.hidden=!hi);
-  $('#save').textContent=k==='buy'?'记录买入':k==='sell'?'记录卖出':'记录历史盈亏';
+  const hi=k==='history'||k==='pending';$$('[data-t]').forEach(x=>x.hidden=hi);$$('[data-hf]').forEach(x=>x.hidden=!hi);
+  $('#fPnlL').textContent=k==='pending'?'待结算盈亏（亏损填负数）':'总盈亏（亏损填负数）';
+  $('#save').textContent=k==='buy'?'记录买入':k==='sell'?'记录卖出':k==='pending'?'记入待结算':'记录历史盈亏';
   if(k==='sell'&&S.pick){const p=lastC.holds.find(x=>x.name===S.pick);if(p)$('#fQty').value=p.qty;}
   calc();}
 function setPick(n){S.pick=n;$('#fName').value=n;$$('#picks [data-pick]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pick===n)));
@@ -650,12 +747,12 @@ $('#save').addEventListener('click',async()=>{
   const name=$('#fName').value.trim(),date=$('#fDate').value,note=$('#fNote').value.trim(),err=x=>{$('#err').textContent=x;};
   if(!name)return err('请填写股票名称');if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return err('请选择日期');
   let doc;
-  if(S.kind==='history'){const v=num('#fPnl');if(!v)return err('请填写总盈亏，亏损填负数');doc={name,side:'history',date,pnl:v,note};}
+  if(S.kind==='history'||S.kind==='pending'){const v=num('#fPnl');if(!v)return err('请填写盈亏，亏损填负数');doc={name,side:S.kind,date,pnl:v,note};}
   else{const price=num('#fPrice'),qty=num('#fQty');if(!(price>0))return err('成交价需要大于 0');if(!(qty>0))return err('数量需要大于 0');
     if(S.kind==='sell'){const p=lastC.holds.find(x=>x.name===name);if(!p)return err('当前没有「'+name+'」的持仓');if(qty>p.qty+1e-9)return err('最多可卖 '+nfi.format(p.qty)+' 股');}
     doc={name,side:S.kind,date,price,qty,fee:fee(),note};}
   $('#save').disabled=true;
-  try{await addTrade(doc);closeAll();toast(S.kind==='buy'?'已记录买入':S.kind==='sell'?'已记录卖出':'已记录历史盈亏');}
+  try{await addTrade(doc);closeAll();toast(S.kind==='buy'?'已记录买入':S.kind==='sell'?'已记录卖出':S.kind==='pending'?'已记入待结算':'已记录历史盈亏');}
   catch(e){err('没有保存成功，请重试');}finally{$('#save').disabled=false;}
 });
 $('#fab').addEventListener('click',()=>openAdd('buy'));
@@ -664,7 +761,7 @@ try{const th=localStorage.getItem('margin.theme');if(th==='light'||th==='dark')d
 
 /* ---------- settings ---------- */
 function openSettings(){renderSettings(lastC);openSheet('setSheet');}
-const kindOf=s=>s==='buy'?'买入':s==='sell'?'卖出':s==='adjust'?'调整':'历史盈亏';
+const kindOf=s=>s==='buy'?'买入':s==='sell'?'卖出':s==='adjust'?'调整':s==='pending'?'待结算':s==='drop'?'删除持仓':'历史盈亏';
 function renderSettings(C){
   if(document.activeElement!==$('#sMine'))$('#sMine').value=S.settings.mine;
   $('#sOther').textContent=(100-Math.round(share()*100))+'%';
@@ -675,7 +772,8 @@ function renderSettings(C){
   const all=[...C.ts].reverse(),lim=S.showAll?all:all.slice(0,15);
   $('#recCount').textContent=all.length+' 笔';
   $('#recList').innerHTML=all.length?lim.map(t=>{const r=C.byId[t.id];let v;
-      if(t.side==='history'||(t.side==='sell'&&r))v=`<b class="n ${cl(r?r.pnl:+t.pnl)}">${m(r?r.pnl:+t.pnl,true)}</b>`;
+      if(t.side==='history'||t.side==='pending'||(t.side==='sell'&&r))v=`<b class="n ${cl(r?r.pnl:+t.pnl)}">${m(r?r.pnl:+t.pnl,true)}</b>`;
+      else if(t.side==='drop')v=`<b class="n">${nfi.format(+t.qty||0)} 股</b>`;
       else if(t.side==='adjust')v=`<b class="n">${nf.format(+t.avg)} × ${nfi.format(+t.qty)}</b>`;
       else v=`<b class="n">${nf.format((+t.price)*(+t.qty))}</b>`;
       return `<div class="rec"><div class="rl"><b>${esc(t.name)}</b><small>${kindOf(t.side)} · ${esc(t.date)}${t.side==='buy'||t.side==='sell'?' · '+nf.format(+t.price):''}${t.note?' · '+esc(t.note):''}</small></div>${v}<button class="del" type="button" data-del="${esc(t.id)}">删除</button></div>`;}).join(''):'<p class="empty">还没有记录。</p>';
@@ -698,21 +796,22 @@ function saveFile(name,data){try{const type=name.endsWith('.csv')?'text/csv;char
   const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast('已导出');}catch(e){toast('导出失败，请重试');}}
 $('#expCsv').addEventListener('click',()=>{const C=lastC,sh=share(),q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const rows=[['日期','股票名称','类型','成交价','数量','手续费','成交金额','盈亏','本人盈亏','对方盈亏','备注']];
-  for(const t of C.ts){const r=C.byId[t.id],tr=t.side==='buy'||t.side==='sell';
-    rows.push([t.date,t.name,kindOf(t.side),tr?t.price:(t.side==='adjust'?t.avg:''),tr||t.side==='adjust'?t.qty:'',tr?(t.fee||0):'',tr?((+t.price)*(+t.qty)).toFixed(2):'',r?r.pnl.toFixed(2):'',r?(r.pnl*sh).toFixed(2):'',r?(r.pnl*(1-sh)).toFixed(2):'',t.note||'']);}
+  for(const t of C.ts){const r=C.byId[t.id],tr=t.side==='buy'||t.side==='sell',pv=r?r.pnl:(t.side==='pending'?+t.pnl||0:null);
+    rows.push([t.date,t.name,kindOf(t.side),tr?t.price:(t.side==='adjust'?t.avg:''),tr||t.side==='adjust'||t.side==='drop'?t.qty:'',tr?(t.fee||0):'',tr?((+t.price)*(+t.qty)).toFixed(2):'',pv!=null?pv.toFixed(2):'',pv!=null?(pv*sh).toFixed(2):'',pv!=null?(pv*(1-sh)).toFixed(2):'',t.note||'']);}
   saveFile('Margin-成交记录-'+stamp()+'.csv','﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'));});
 $('#expJson').addEventListener('click',()=>{saveFile('Margin-备份-'+stamp()+'.json',JSON.stringify({app:'Margin',version:1,exportedAt:new Date().toISOString(),settings:S.settings,quotes:S.quotes,trades:S.trades.map(t=>Object.assign({},t))},null,2));});
 let pendingImp=null;
 $('#impFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;const rd=new FileReader();
   rd.onload=()=>{try{const d=JSON.parse(rd.result);let ts=d.trades;if(ts&&!Array.isArray(ts))ts=Object.keys(ts).map(id=>Object.assign({id},ts[id]));
-      ts=Array.isArray(ts)?ts.filter(t=>t&&t.name&&t.date&&['buy','sell','history','adjust'].includes(t.side)):null;if(!ts||!ts.length)throw 0;
+      ts=Array.isArray(ts)?ts.filter(t=>t&&t.name&&t.date&&['buy','sell','history','adjust','pending','drop'].includes(t.side)):null;if(!ts||!ts.length)throw 0;
       pendingImp=ts;$('#impMsg').textContent='文件包含 '+ts.length+' 笔记录。导入后会与现有记录合并，相同的记录以文件为准。';$('#impConfirm').hidden=false;}
     catch(x){pendingImp=null;toast('这个文件不是 Margin 的备份');}};rd.readAsText(f);});
 $('#impNo').addEventListener('click',()=>{pendingImp=null;$('#impConfirm').hidden=true;});
 $('#impGo').addEventListener('click',async()=>{if(!pendingImp)return;const P=pendingImp;pendingImp=null;
   const okId=id=>typeof id==='string'&&/^[A-Za-z0-9_\-.~:@+]{1,200}$/.test(id);
   for(const t of P){const c={name:String(t.name),code:t.code?String(t.code):'',side:t.side,date:String(t.date).slice(0,10),note:t.note?String(t.note):'',createdAt:+t.createdAt||Date.now()};
-    if(t.side==='history')c.pnl=+t.pnl||0;else if(t.side==='adjust'){c.avg=+t.avg||0;c.qty=+t.qty||0;}else{c.price=+t.price||0;c.qty=+t.qty||0;c.fee=+t.fee||0;}
+    if(t.settledAt)c.settledAt=+t.settledAt||0;
+    if(t.side==='history'||t.side==='pending')c.pnl=+t.pnl||0;else if(t.side==='drop')c.qty=+t.qty||0;else if(t.side==='adjust'){c.avg=+t.avg||0;c.qty=+t.qty||0;}else{c.price=+t.price||0;c.qty=+t.qty||0;c.fee=+t.fee||0;}
     if(okId(t.id))await S.db.doc('trades/'+t.id).set(c);else await S.db.collection('trades').add(c);}
   $('#impConfirm').hidden=true;toast('已导入 '+P.length+' 笔记录');});
 
